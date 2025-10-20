@@ -271,13 +271,18 @@ Players.PlayerAdded:Connect(function(player)
         AssignHitboxes(player)
     end
 end)
--- PULL VECTOR FEATURE SETUP
-local PULL_ENABLED = false
-local PULL_STRENGTH = 50 -- default strength
+--====================================================--
+-- PULL VECTOR SECTION (predictive pull version)
+--====================================================--
 
+local PULL_ENABLED = false
+local PULL_STRENGTH = 50
+local pulling = false
+
+-- UI TAB SETUP
 local Tab0 = Window:CreateTab("Pull Vector", 4483362458)
 
--- Toggle Pull Vector
+-- Toggle for enabling/disabling pull feature
 local PullToggle = Tab0:CreateToggle({
     Name = "Enable Pull Vector",
     CurrentValue = false,
@@ -287,10 +292,10 @@ local PullToggle = Tab0:CreateToggle({
     end,
 })
 
--- Slider for strength
+-- Slider to adjust pull strength (0–100)
 local PullSlider = Tab0:CreateSlider({
    Name = "Pull Strength",
-   Range = {10, 500},
+   Range = {0, 100},
    Increment = 1,
    Suffix = "Strength",
    CurrentValue = 50,
@@ -300,79 +305,199 @@ local PullSlider = Tab0:CreateSlider({
    end
 })
 
--- Function to pull player to football
-local function pullToBall()
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    local football = getFootball()
-    if PULL_ENABLED and root and football then
-        local direction = (football.Position - root.Position).Unit
-        local bv = Instance.new("BodyVelocity")
-        bv.Velocity = direction * PULL_STRENGTH
-        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bv.P = 5000
-        bv.Parent = root
-        game:GetService("Debris"):AddItem(bv, 0.3)
-    end
+-- Helper function to get the player's root part
+local function getRoot()
+	local char = LocalPlayer.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
 end
 
--- Bind Left Mouse Button to pull
+-- Main pull function (predictive)
+local function startPull()
+	if pulling or not PULL_ENABLED then return end
+	pulling = true
+
+	task.spawn(function()
+		while pulling and PULL_ENABLED do
+			local root = getRoot()
+			local football = getFootball()
+			if root and football then
+				-- Predictive position based on ball velocity
+				local predictionTime = 0.15 -- seconds ahead
+				local predictedPos = football.Position + football.Velocity * predictionTime
+
+				local dir = predictedPos - root.Position
+				local dist = dir.Magnitude
+				if dist > 1 then -- stop when close
+					dir = dir.Unit
+					root.Velocity = dir * PULL_STRENGTH
+				else
+					root.Velocity = Vector3.zero
+				end
+			end
+			task.wait()
+		end
+	end)
+end
+
+local function stopPull()
+	pulling = false
+end
+
+-- Mouse input
 Mouse.Button1Down:Connect(function()
-    pullToBall()
+	if PULL_ENABLED then
+		startPull()
+	end
 end)
 
-local TELEPORT_ENABLED = false
+Mouse.Button1Up:Connect(function()
+	stopPull()
+end)
 
--- Function to teleport ball to hand
-local function teleportBallToHand()
+-- Controller input (Right Bumper)
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.UserInputType == Enum.UserInputType.Gamepad1 and input.KeyCode == Enum.KeyCode.ButtonR1 then
+		if PULL_ENABLED then
+			startPull()
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gp)
+	if gp then return end
+	if input.UserInputType == Enum.UserInputType.Gamepad1 and input.KeyCode == Enum.KeyCode.ButtonR1 then
+		stopPull()
+	end
+end)
+
+
+-- --====================================================--
+-- -- MOBILE SUPPORT
+-- --====================================================--
+-- if UserInputService.TouchEnabled then
+-- 	local screenGui = Instance.new("ScreenGui")
+-- 	screenGui.Name = "PullTouchUI"
+-- 	screenGui.ResetOnSpawn = false
+-- 	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- 	local pullButton = Instance.new("ImageButton")
+-- 	pullButton.Size = UDim2.new(0, 100, 0, 100)
+-- 	pullButton.Position = UDim2.new(1, -120, 1, -140)
+-- 	pullButton.BackgroundTransparency = 0.4
+-- 	pullButton.BackgroundColor3 = Color3.fromRGB(50, 50, 120)
+-- 	pullButton.Image = "rbxassetid://3926305904"
+-- 	pullButton.ImageRectOffset = Vector2.new(4, 204)
+-- 	pullButton.ImageRectSize = Vector2.new(36, 36)
+-- 	pullButton.Parent = screenGui
+
+-- 	pullButton.InputBegan:Connect(function(input)
+-- 		if input.UserInputType == Enum.UserInputType.Touch and PULL_ENABLED then
+-- 			startPull()
+-- 		end
+-- 	end)
+
+-- 	pullButton.InputEnded:Connect(function(input)
+-- 		if input.UserInputType == Enum.UserInputType.Touch then
+-- 			stopPull()
+-- 		end
+-- 	end)
+-- end
+
+--====================================================--
+-- REACH TAB SECTION
+--====================================================--
+
+local REACH_ENABLED = false
+local REACH_SIZE = 5       -- default radius
+local REACH_TRANSP = 0.2   -- default transparency
+
+-- Create Reach Tab
+local TabReach = Window:CreateTab("Reach", 4483362458)
+
+-- Toggle to enable/disable reach
+local ReachToggle = TabReach:CreateToggle({
+    Name = "Enable Reach",
+    CurrentValue = false,
+    Flag = "ReachToggle",
+    Callback = function(Value)
+        REACH_ENABLED = Value
+        if ReachPart then
+            ReachPart.Visible = Value
+        end
+    end
+})
+
+-- Slider to change reach size
+local ReachSizeSlider = TabReach:CreateSlider({
+    Name = "Reach Size",
+    Range = {1, 15},
+    Increment = 0.1,
+    Suffix = "Studs",
+    CurrentValue = REACH_SIZE,
+    Flag = "ReachSizeSlider",
+    Callback = function(Value)
+        REACH_SIZE = Value
+        if ReachPart then
+            ReachPart.Size = Vector3.new(Value, Value, Value)
+        end
+    end
+})
+
+-- Slider to change reach transparency
+local ReachTransSlider = TabReach:CreateSlider({
+    Name = "Reach Transparency",
+    Range = {0, 1},
+    Increment = 0.01,
+    Suffix = "",
+    CurrentValue = REACH_TRANSP,
+    Flag = "ReachTransSlider",
+    Callback = function(Value)
+        REACH_TRANSP = Value
+        if ReachPart then
+            ReachPart.Transparency = Value
+        end
+    end
+})
+
+-- Create the visual Reach Part
+local ReachPart
+local function setupReach()
     local char = LocalPlayer.Character
     if not char then return end
-    local hand = char:FindFirstChild("RightHand") or char:FindFirstChild("HumanoidRootPart")
-    local football = getFootball()
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
 
-    if football and hand then
-        football.CFrame = hand.CFrame
-        football.Velocity = Vector3.zero
-        football.RotVelocity = Vector3.zero
-        football.Anchored = false
-        print("Ball teleported to hand!")
-    else
-        warn("No football or hand found!")
-    end
+    -- Create a semi-transparent sphere
+    ReachPart = Instance.new("Part")
+    ReachPart.Shape = Enum.PartType.Ball
+    ReachPart.Anchored = true
+    ReachPart.CanCollide = false
+    ReachPart.Material = Enum.Material.Neon
+    ReachPart.Color = Color3.fromRGB(0, 255, 0)
+    ReachPart.Transparency = REACH_TRANSP
+    ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+    ReachPart.Parent = workspace
+    ReachPart.Visible = REACH_ENABLED
+
+    -- Update position each frame
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if ReachPart and root then
+            ReachPart.Position = root.Position
+            ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+            ReachPart.Transparency = REACH_TRANSP
+        end
+    end)
 end
 
--- Bind Left Click only when toggle is on
-Mouse.Button1Down:Connect(function()
-    if not TELEPORT_ENABLED then return end
-    teleportBallToHand()
+-- Setup reach when character spawns
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5) -- small delay to ensure HumanoidRootPart exists
+    setupReach()
 end)
 
---====================================================--
--- UI TAB + TOGGLE SETUP
---====================================================--
-
--- Add new tab for teleport control (or attach to Pull Vector tab if you prefer)
-local Tab3 = Window:CreateTab("Teleport", 4483362458)
-
--- Toggle for teleport feature
-local TeleportToggle = Tab3:CreateToggle({
-    Name = "Teleport Ball To Hand (LMB)",
-    CurrentValue = false,
-    Flag = "TeleportBallToggle",
-    Callback = function(Value)
-        TELEPORT_ENABLED = Value
-        if TELEPORT_ENABLED then
-            print("Teleport Ball feature enabled")
-        else
-            print("Teleport Ball feature disabled")
-        end
-    end,
-})
-
--- Optional button for instant manual teleport (in case you don’t want to click)
-local TeleportButton = Tab3:CreateButton({
-    Name = "Teleport Ball To Hand (Manual)",
-    Callback = function()
-        teleportBallToHand()
-    end,
-})
+-- If character already exists
+if LocalPlayer.Character then
+    task.wait(0.5)
+    setupReach()
+end
