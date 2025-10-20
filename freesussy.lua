@@ -405,7 +405,7 @@ end)
 -- end
 
 --====================================================--
--- REACH TAB SECTION (BoxHandleAdornment)
+-- REACH TAB SECTION (Fixed BoxHandleAdornment)
 --====================================================--
 
 local REACH_ENABLED = false
@@ -438,9 +438,6 @@ local ReachSizeSlider = TabReach:CreateSlider({
     Flag = "ReachSizeSlider",
     Callback = function(Value)
         REACH_SIZE = Value
-        if ReachAdornment then
-            ReachAdornment.Size = Vector3.new(Value, Value, Value)
-        end
     end
 })
 
@@ -454,9 +451,6 @@ local ReachTransSlider = TabReach:CreateSlider({
     Flag = "ReachTransSlider",
     Callback = function(Value)
         REACH_TRANSP = Value
-        if ReachAdornment then
-            ReachAdornment.Transparency = Value
-        end
     end
 })
 
@@ -468,21 +462,27 @@ local function setupReach()
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    -- Create the BoxHandleAdornment
+    -- Create BoxHandleAdornment
     ReachAdornment = Instance.new("BoxHandleAdornment")
-    ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
     ReachAdornment.Adornee = root
     ReachAdornment.AlwaysOnTop = true
     ReachAdornment.ZIndex = 1
-    ReachAdornment.Transparency = REACH_TRANSP
     ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
     ReachAdornment.Parent = root
     ReachAdornment.Enabled = REACH_ENABLED
+
+    -- Update loop to apply size and transparency continuously
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if ReachAdornment and root then
+            ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+            ReachAdornment.Transparency = REACH_TRANSP
+        end
+    end)
 end
 
 -- Setup reach when character spawns
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5) -- ensure HumanoidRootPart exists
+    task.wait(0.5)
     setupReach()
 end)
 
