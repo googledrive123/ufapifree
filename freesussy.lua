@@ -405,12 +405,12 @@ end)
 -- end
 
 --====================================================--
--- REACH TAB SECTION
+-- REACH TAB SECTION (BoxHandleAdornment)
 --====================================================--
 
 local REACH_ENABLED = false
-local REACH_SIZE = 5       -- default radius
-local REACH_TRANSP = 0.2   -- default transparency
+local REACH_SIZE = 5       -- default reach size
+local REACH_TRANSP = 0.8   -- default transparency (0 = opaque, 1 = invisible)
 
 -- Create Reach Tab
 local TabReach = Window:CreateTab("Reach", 4483362458)
@@ -422,8 +422,8 @@ local ReachToggle = TabReach:CreateToggle({
     Flag = "ReachToggle",
     Callback = function(Value)
         REACH_ENABLED = Value
-        if ReachPart then
-            ReachPart.Visible = Value
+        if ReachAdornment then
+            ReachAdornment.Enabled = Value
         end
     end
 })
@@ -438,8 +438,8 @@ local ReachSizeSlider = TabReach:CreateSlider({
     Flag = "ReachSizeSlider",
     Callback = function(Value)
         REACH_SIZE = Value
-        if ReachPart then
-            ReachPart.Size = Vector3.new(Value, Value, Value)
+        if ReachAdornment then
+            ReachAdornment.Size = Vector3.new(Value, Value, Value)
         end
     end
 })
@@ -454,45 +454,35 @@ local ReachTransSlider = TabReach:CreateSlider({
     Flag = "ReachTransSlider",
     Callback = function(Value)
         REACH_TRANSP = Value
-        if ReachPart then
-            ReachPart.Transparency = Value
+        if ReachAdornment then
+            ReachAdornment.Transparency = Value
         end
     end
 })
 
--- Create the visual Reach Part
-local ReachPart
+-- Create the Reach Adornment
+local ReachAdornment
 local function setupReach()
     local char = LocalPlayer.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    -- Create a semi-transparent sphere
-    ReachPart = Instance.new("Part")
-    ReachPart.Shape = Enum.PartType.Ball
-    ReachPart.Anchored = true
-    ReachPart.CanCollide = false
-    ReachPart.Material = Enum.Material.Neon
-    ReachPart.Color = Color3.fromRGB(0, 255, 0)
-    ReachPart.Transparency = REACH_TRANSP
-    ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-    ReachPart.Parent = workspace
-    ReachPart.Visible = REACH_ENABLED
-
-    -- Update position each frame
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if ReachPart and root then
-            ReachPart.Position = root.Position
-            ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-            ReachPart.Transparency = REACH_TRANSP
-        end
-    end)
+    -- Create the BoxHandleAdornment
+    ReachAdornment = Instance.new("BoxHandleAdornment")
+    ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+    ReachAdornment.Adornee = root
+    ReachAdornment.AlwaysOnTop = true
+    ReachAdornment.ZIndex = 1
+    ReachAdornment.Transparency = REACH_TRANSP
+    ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
+    ReachAdornment.Parent = root
+    ReachAdornment.Enabled = REACH_ENABLED
 end
 
 -- Setup reach when character spawns
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5) -- small delay to ensure HumanoidRootPart exists
+    task.wait(0.5) -- ensure HumanoidRootPart exists
     setupReach()
 end)
 
@@ -501,3 +491,4 @@ if LocalPlayer.Character then
     task.wait(0.5)
     setupReach()
 end
+--====================================================--
