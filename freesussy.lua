@@ -405,17 +405,17 @@ end)
 -- end
 
 --====================================================--
--- REACH TAB SECTION (Fixed BoxHandleAdornment)
+-- REACH TAB SECTION (Fixed Working BoxHandleAdornment)
 --====================================================--
 
 local REACH_ENABLED = false
-local REACH_SIZE = 5       -- default reach size
-local REACH_TRANSP = 0.8   -- default transparency (0 = opaque, 1 = invisible)
+local REACH_SIZE = 5
+local REACH_TRANSP = 0.8
 
 -- Create Reach Tab
 local TabReach = Window:CreateTab("Reach", 4483362458)
 
--- Toggle to enable/disable reach
+-- Toggle
 local ReachToggle = TabReach:CreateToggle({
     Name = "Enable Reach",
     CurrentValue = false,
@@ -428,7 +428,7 @@ local ReachToggle = TabReach:CreateToggle({
     end
 })
 
--- Slider to change reach size
+-- Size Slider
 local ReachSizeSlider = TabReach:CreateSlider({
     Name = "Reach Size",
     Range = {1, 15},
@@ -441,7 +441,7 @@ local ReachSizeSlider = TabReach:CreateSlider({
     end
 })
 
--- Slider to change reach transparency
+-- Transparency Slider
 local ReachTransSlider = TabReach:CreateSlider({
     Name = "Reach Transparency",
     Range = {0, 1},
@@ -454,12 +454,12 @@ local ReachTransSlider = TabReach:CreateSlider({
     end
 })
 
--- Create the Reach Adornment
+-- Create Reach Adornment
 local ReachAdornment
 local function setupReach()
     local char = LocalPlayer.Character
     if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
+    local root = char:WaitForChild("HumanoidRootPart")
     if not root then return end
 
     -- Create BoxHandleAdornment
@@ -468,19 +468,23 @@ local function setupReach()
     ReachAdornment.AlwaysOnTop = true
     ReachAdornment.ZIndex = 1
     ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
-    ReachAdornment.Parent = root
+    ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+    ReachAdornment.Transparency = REACH_TRANSP
+    ReachAdornment.Parent = workspace
     ReachAdornment.Enabled = REACH_ENABLED
 
-    -- Update loop to apply size and transparency continuously
+    -- Continuous update
     game:GetService("RunService").RenderStepped:Connect(function()
         if ReachAdornment and root then
+            ReachAdornment.Adornee = root
             ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
             ReachAdornment.Transparency = REACH_TRANSP
+            ReachAdornment.Enabled = REACH_ENABLED
         end
     end)
 end
 
--- Setup reach when character spawns
+-- Setup on character spawn
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5)
     setupReach()
