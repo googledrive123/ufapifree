@@ -405,7 +405,7 @@ end)
 -- end
 
 --====================================================--
--- REACH TAB SECTION (Working Version)
+-- REACH TAB SECTION (Working + Auto-Catch)
 --====================================================--
 
 local REACH_ENABLED = false
@@ -506,4 +506,43 @@ if LocalPlayer.Character then
     task.wait(0.5)
     setupReach()
 end
+
+--====================================================--
+-- AUTO-CATCH BALL VIA REACH
+--====================================================--
+
+-- Helper to get hand or fallback to root
+local function getHand()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    return char:FindFirstChild("RightHand") or char:FindFirstChild("HumanoidRootPart")
+end
+
+-- Check if a ball is inside the reach box
+local function isBallInReach(ball, root, size)
+    if not ball or not root then return false end
+    local relPos = root.CFrame:PointToObjectSpace(ball.Position)
+    local half = size / 2
+    return math.abs(relPos.X) <= half and math.abs(relPos.Y) <= half and math.abs(relPos.Z) <= half
+end
+
+-- Auto-catch loop (fires every frame)
+game:GetService("RunService").RenderStepped:Connect(function()
+    if not REACH_ENABLED then return end
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local hand = getHand()
+    if not root or not hand then return end
+
+    for _, ball in pairs(workspace:GetDescendants()) do
+        if ball:IsA("BasePart") and ball.Name:lower():find("ball") and not ball.Anchored then
+            if isBallInReach(ball, root, REACH_SIZE) then
+                -- Move ball to hand
+                ball.CFrame = hand.CFrame
+                ball.Velocity = Vector3.zero
+                ball.RotVelocity = Vector3.zero
+                ball.Anchored = false
+            end
+        end
+    end
+end)
 --====================================================--
