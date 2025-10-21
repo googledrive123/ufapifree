@@ -405,55 +405,62 @@ end)
 -- end
 
 --====================================================--
--- REACH TAB SECTION (Invisible Hitbox + Auto-Catch)
+-- REACH TAB SECTION (Distance Check + Auto-Catch)
 --====================================================--
 
 local REACH_ENABLED = false
 local REACH_SIZE = 5
-local REACH_TRANSP = 0.2 -- visual box opacity
+local REACH_TRANSP = 0.2
 
+-- Create Reach Tab
 local TabReach = Window:CreateTab("Reach", 4483362458)
 
 -- Variables
-local ReachPart
 local ReachAdornment
 
--- Setup Reach Part
+-- Setup Reach Adornment
 local function setupReach()
 	local char = LocalPlayer.Character
 	if not char then return end
 	local root = char:WaitForChild("HumanoidRootPart")
 
-	-- Create invisible part for actual hit detection
-	if not ReachPart then
-		ReachPart = Instance.new("Part")
-		ReachPart.Anchored = true
-		ReachPart.CanCollide = false
-		ReachPart.Transparency = 1 -- fully invisible
-		ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-		ReachPart.CFrame = root.CFrame
-		ReachPart.Parent = workspace
-	end
-
-	-- Create visual box
+	-- Create visual box for reach
 	if not ReachAdornment then
 		ReachAdornment = Instance.new("BoxHandleAdornment")
-		ReachAdornment.Adornee = ReachPart
+		ReachAdornment.Adornee = root
 		ReachAdornment.AlwaysOnTop = true
 		ReachAdornment.ZIndex = 1
 		ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
+		ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
 		ReachAdornment.Transparency = REACH_TRANSP
-		ReachAdornment.Parent = ReachPart
+		ReachAdornment.Parent = root
 	end
 
-	-- Update loop
-	game:GetService("RunService").RenderStepped:Connect(function()
-		if root and ReachPart then
-			ReachPart.CFrame = root.CFrame
-			ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-			ReachAdornment.Size = ReachPart.Size
+	-- Update loop for visual + auto-catch
+	RunService.RenderStepped:Connect(function()
+		if root and ReachAdornment then
+			-- Update visual
+			ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
 			ReachAdornment.Transparency = REACH_TRANSP
 			ReachAdornment.Enabled = REACH_ENABLED
+
+			-- Auto-catch balls
+			if REACH_ENABLED then
+				for _, ball in pairs(workspace:GetDescendants()) do
+					if ball:IsA("BasePart") and ball.Name:lower():find("ball") and not ball.Anchored then
+						local distance = (ball.Position - root.Position).Magnitude
+						if distance <= REACH_SIZE / 2 then
+							local hand = char:FindFirstChild("RightHand") or root
+							if hand then
+								ball.CFrame = hand.CFrame
+								ball.Velocity = Vector3.zero
+								ball.RotVelocity = Vector3.zero
+								ball.Anchored = false
+							end
+						end
+					end
+				end
+			end
 		end
 	end)
 end
@@ -481,12 +488,6 @@ TabReach:CreateSlider({
 	Flag = "ReachSizeSlider",
 	Callback = function(Value)
 		REACH_SIZE = Value
-		if ReachPart then
-			ReachPart.Size = Vector3.new(Value, Value, Value)
-			if ReachAdornment then
-				ReachAdornment.Size = ReachPart.Size
-			end
-		end
 	end
 })
 
@@ -500,9 +501,6 @@ TabReach:CreateSlider({
 	Flag = "ReachTransSlider",
 	Callback = function(Value)
 		REACH_TRANSP = Value
-		if ReachAdornment then
-			ReachAdornment.Transparency = Value
-		end
 	end
 })
 
@@ -511,34 +509,10 @@ LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(0.5)
 	setupReach()
 end)
+
+-- If character already exists
 if LocalPlayer.Character then
 	task.wait(0.5)
 	setupReach()
-end
-
---====================================================--
--- AUTO-CATCH BALL VIA HITBOX
---====================================================--
-
-local function getHand()
-	local char = LocalPlayer.Character
-	if not char then return nil end
-	return char:FindFirstChild("RightHand") or char:FindFirstChild("HumanoidRootPart")
-end
-
--- Connect Touched event for auto-catch
-if ReachPart then
-	ReachPart.Touched:Connect(function(hit)
-		if not REACH_ENABLED then return end
-		if hit:IsA("BasePart") and hit.Name:lower():find("ball") and not hit.Anchored then
-			local hand = getHand()
-			if hand then
-				hit.CFrame = hand.CFrame
-				hit.Velocity = Vector3.zero
-				hit.RotVelocity = Vector3.zero
-				hit.Anchored = false
-			end
-		end
-	end)
 end
 --====================================================--
