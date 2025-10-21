@@ -405,7 +405,7 @@ end)
 -- end
 
 --====================================================--
--- REACH TAB SECTION (Fixed Working BoxHandleAdornment)
+-- REACH TAB SECTION (Working Version)
 --====================================================--
 
 local REACH_ENABLED = false
@@ -415,8 +415,43 @@ local REACH_TRANSP = 0.8
 -- Create Reach Tab
 local TabReach = Window:CreateTab("Reach", 4483362458)
 
+-- BoxHandleAdornment variable
+local ReachAdornment
+
+-- Function to create/update reach
+local function setupReach()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local root = char:WaitForChild("HumanoidRootPart")
+    if not root then return end
+
+    if not ReachAdornment then
+        ReachAdornment = Instance.new("BoxHandleAdornment")
+        ReachAdornment.Adornee = root
+        ReachAdornment.AlwaysOnTop = true
+        ReachAdornment.ZIndex = 1
+        ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
+        ReachAdornment.Parent = workspace
+    end
+
+    -- Apply current settings
+    ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+    ReachAdornment.Transparency = REACH_TRANSP
+    ReachAdornment.Enabled = REACH_ENABLED
+
+    -- Continuously update Adornee (follows player)
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if ReachAdornment and root then
+            ReachAdornment.Adornee = root
+            ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+            ReachAdornment.Transparency = REACH_TRANSP
+            ReachAdornment.Enabled = REACH_ENABLED
+        end
+    end)
+end
+
 -- Toggle
-local ReachToggle = TabReach:CreateToggle({
+TabReach:CreateToggle({
     Name = "Enable Reach",
     CurrentValue = false,
     Flag = "ReachToggle",
@@ -428,8 +463,8 @@ local ReachToggle = TabReach:CreateToggle({
     end
 })
 
--- Size Slider
-local ReachSizeSlider = TabReach:CreateSlider({
+-- Size slider
+TabReach:CreateSlider({
     Name = "Reach Size",
     Range = {1, 15},
     Increment = 0.1,
@@ -438,11 +473,14 @@ local ReachSizeSlider = TabReach:CreateSlider({
     Flag = "ReachSizeSlider",
     Callback = function(Value)
         REACH_SIZE = Value
+        if ReachAdornment then
+            ReachAdornment.Size = Vector3.new(Value, Value, Value)
+        end
     end
 })
 
--- Transparency Slider
-local ReachTransSlider = TabReach:CreateSlider({
+-- Transparency slider
+TabReach:CreateSlider({
     Name = "Reach Transparency",
     Range = {0, 1},
     Increment = 0.01,
@@ -451,46 +489,19 @@ local ReachTransSlider = TabReach:CreateSlider({
     Flag = "ReachTransSlider",
     Callback = function(Value)
         REACH_TRANSP = Value
+        if ReachAdornment then
+            ReachAdornment.Transparency = Value
+        end
     end
 })
 
--- Create Reach Adornment
-local ReachAdornment
-local function setupReach()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local root = char:WaitForChild("HumanoidRootPart")
-    if not root then return end
-
-    -- Create BoxHandleAdornment
-    ReachAdornment = Instance.new("BoxHandleAdornment")
-    ReachAdornment.Adornee = root
-    ReachAdornment.AlwaysOnTop = true
-    ReachAdornment.ZIndex = 1
-    ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
-    ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-    ReachAdornment.Transparency = REACH_TRANSP
-    ReachAdornment.Parent = workspace
-    ReachAdornment.Enabled = REACH_ENABLED
-
-    -- Continuous update
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if ReachAdornment and root then
-            ReachAdornment.Adornee = root
-            ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-            ReachAdornment.Transparency = REACH_TRANSP
-            ReachAdornment.Enabled = REACH_ENABLED
-        end
-    end)
-end
-
--- Setup on character spawn
+-- Setup when character spawns
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5)
     setupReach()
 end)
 
--- If character already exists
+-- If character exists already
 if LocalPlayer.Character then
     task.wait(0.5)
     setupReach()
