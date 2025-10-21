@@ -405,144 +405,140 @@ end)
 -- end
 
 --====================================================--
--- REACH TAB SECTION (Working + Auto-Catch)
+-- REACH TAB SECTION (Invisible Hitbox + Auto-Catch)
 --====================================================--
 
 local REACH_ENABLED = false
 local REACH_SIZE = 5
-local REACH_TRANSP = 0.8
+local REACH_TRANSP = 0.2 -- visual box opacity
 
--- Create Reach Tab
 local TabReach = Window:CreateTab("Reach", 4483362458)
 
--- BoxHandleAdornment variable
+-- Variables
+local ReachPart
 local ReachAdornment
 
--- Function to create/update reach
+-- Setup Reach Part
 local function setupReach()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local root = char:WaitForChild("HumanoidRootPart")
-    if not root then return end
+	local char = LocalPlayer.Character
+	if not char then return end
+	local root = char:WaitForChild("HumanoidRootPart")
 
-    if not ReachAdornment then
-        ReachAdornment = Instance.new("BoxHandleAdornment")
-        ReachAdornment.Adornee = root
-        ReachAdornment.AlwaysOnTop = true
-        ReachAdornment.ZIndex = 1
-        ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
-        ReachAdornment.Parent = workspace
-    end
+	-- Create invisible part for actual hit detection
+	if not ReachPart then
+		ReachPart = Instance.new("Part")
+		ReachPart.Anchored = true
+		ReachPart.CanCollide = false
+		ReachPart.Transparency = 1 -- fully invisible
+		ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+		ReachPart.CFrame = root.CFrame
+		ReachPart.Parent = workspace
+	end
 
-    -- Apply current settings
-    ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-    ReachAdornment.Transparency = REACH_TRANSP
-    ReachAdornment.Enabled = REACH_ENABLED
+	-- Create visual box
+	if not ReachAdornment then
+		ReachAdornment = Instance.new("BoxHandleAdornment")
+		ReachAdornment.Adornee = ReachPart
+		ReachAdornment.AlwaysOnTop = true
+		ReachAdornment.ZIndex = 1
+		ReachAdornment.Color3 = Color3.fromRGB(0, 255, 0)
+		ReachAdornment.Transparency = REACH_TRANSP
+		ReachAdornment.Parent = ReachPart
+	end
 
-    -- Continuously update Adornee (follows player)
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if ReachAdornment and root then
-            ReachAdornment.Adornee = root
-            ReachAdornment.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
-            ReachAdornment.Transparency = REACH_TRANSP
-            ReachAdornment.Enabled = REACH_ENABLED
-        end
-    end)
+	-- Update loop
+	game:GetService("RunService").RenderStepped:Connect(function()
+		if root and ReachPart then
+			ReachPart.CFrame = root.CFrame
+			ReachPart.Size = Vector3.new(REACH_SIZE, REACH_SIZE, REACH_SIZE)
+			ReachAdornment.Size = ReachPart.Size
+			ReachAdornment.Transparency = REACH_TRANSP
+			ReachAdornment.Enabled = REACH_ENABLED
+		end
+	end)
 end
 
 -- Toggle
 TabReach:CreateToggle({
-    Name = "Enable Reach",
-    CurrentValue = false,
-    Flag = "ReachToggle",
-    Callback = function(Value)
-        REACH_ENABLED = Value
-        if ReachAdornment then
-            ReachAdornment.Enabled = Value
-        end
-    end
+	Name = "Enable Reach",
+	CurrentValue = false,
+	Flag = "ReachToggle",
+	Callback = function(Value)
+		REACH_ENABLED = Value
+		if ReachAdornment then
+			ReachAdornment.Enabled = Value
+		end
+	end
 })
 
 -- Size slider
 TabReach:CreateSlider({
-    Name = "Reach Size",
-    Range = {1, 15},
-    Increment = 0.1,
-    Suffix = "Studs",
-    CurrentValue = REACH_SIZE,
-    Flag = "ReachSizeSlider",
-    Callback = function(Value)
-        REACH_SIZE = Value
-        if ReachAdornment then
-            ReachAdornment.Size = Vector3.new(Value, Value, Value)
-        end
-    end
+	Name = "Reach Size",
+	Range = {1, 15},
+	Increment = 0.1,
+	Suffix = "Studs",
+	CurrentValue = REACH_SIZE,
+	Flag = "ReachSizeSlider",
+	Callback = function(Value)
+		REACH_SIZE = Value
+		if ReachPart then
+			ReachPart.Size = Vector3.new(Value, Value, Value)
+			if ReachAdornment then
+				ReachAdornment.Size = ReachPart.Size
+			end
+		end
+	end
 })
 
 -- Transparency slider
 TabReach:CreateSlider({
-    Name = "Reach Transparency",
-    Range = {0, 1},
-    Increment = 0.01,
-    Suffix = "",
-    CurrentValue = REACH_TRANSP,
-    Flag = "ReachTransSlider",
-    Callback = function(Value)
-        REACH_TRANSP = Value
-        if ReachAdornment then
-            ReachAdornment.Transparency = Value
-        end
-    end
+	Name = "Reach Transparency",
+	Range = {0, 1},
+	Increment = 0.01,
+	Suffix = "",
+	CurrentValue = REACH_TRANSP,
+	Flag = "ReachTransSlider",
+	Callback = function(Value)
+		REACH_TRANSP = Value
+		if ReachAdornment then
+			ReachAdornment.Transparency = Value
+		end
+	end
 })
 
 -- Setup when character spawns
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5)
-    setupReach()
+	task.wait(0.5)
+	setupReach()
 end)
-
--- If character exists already
 if LocalPlayer.Character then
-    task.wait(0.5)
-    setupReach()
+	task.wait(0.5)
+	setupReach()
 end
 
 --====================================================--
--- AUTO-CATCH BALL VIA REACH
+-- AUTO-CATCH BALL VIA HITBOX
 --====================================================--
 
--- Helper to get hand or fallback to root
 local function getHand()
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    return char:FindFirstChild("RightHand") or char:FindFirstChild("HumanoidRootPart")
+	local char = LocalPlayer.Character
+	if not char then return nil end
+	return char:FindFirstChild("RightHand") or char:FindFirstChild("HumanoidRootPart")
 end
 
--- Check if a ball is inside the reach box
-local function isBallInReach(ball, root, size)
-    if not ball or not root then return false end
-    local relPos = root.CFrame:PointToObjectSpace(ball.Position)
-    local half = size / 2
-    return math.abs(relPos.X) <= half and math.abs(relPos.Y) <= half and math.abs(relPos.Z) <= half
+-- Connect Touched event for auto-catch
+if ReachPart then
+	ReachPart.Touched:Connect(function(hit)
+		if not REACH_ENABLED then return end
+		if hit:IsA("BasePart") and hit.Name:lower():find("ball") and not hit.Anchored then
+			local hand = getHand()
+			if hand then
+				hit.CFrame = hand.CFrame
+				hit.Velocity = Vector3.zero
+				hit.RotVelocity = Vector3.zero
+				hit.Anchored = false
+			end
+		end
+	end)
 end
-
--- Auto-catch loop (fires every frame)
-game:GetService("RunService").RenderStepped:Connect(function()
-    if not REACH_ENABLED then return end
-    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local hand = getHand()
-    if not root or not hand then return end
-
-    for _, ball in pairs(workspace:GetDescendants()) do
-        if ball:IsA("BasePart") and ball.Name:lower():find("ball") and not ball.Anchored then
-            if isBallInReach(ball, root, REACH_SIZE) then
-                -- Move ball to hand
-                ball.CFrame = hand.CFrame
-                ball.Velocity = Vector3.zero
-                ball.RotVelocity = Vector3.zero
-                ball.Anchored = false
-            end
-        end
-    end
-end)
 --====================================================--
