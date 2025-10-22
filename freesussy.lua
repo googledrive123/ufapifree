@@ -184,6 +184,7 @@ local Window = Rayfield:CreateWindow({
         FolderName = "",
         FileName = ""
     },
+	-- fix this we need inv link to server
     Discord = {
         Enabled = true,
         Invite = "",
@@ -193,11 +194,11 @@ local Window = Rayfield:CreateWindow({
     KeySettings = {
         Title = "Universe Football Script",
         Subtitle = "Key System", 
-        Note = "Get Key from owner",
+        Note = "Get Key from Owner in our server",
         FileName = "Key",
         SaveKey = true,
         GrabKeyFromSite = false,
-        Key = {"OSUO19BaHEBC8vOZc76vklGfBZEIL8AH"}
+        Key = {"DJHSHDG987897sKDFJH9sg7gSHOIGzsg8qg82"}
 
     },
 })
