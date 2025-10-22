@@ -186,7 +186,7 @@ local Window = Rayfield:CreateWindow({
     },
 	-- fix this we need inv link to server
     Discord = {
-        Enabled = true,
+        Enabled = false,
         Invite = "",
         RememberJoins = true
     },
